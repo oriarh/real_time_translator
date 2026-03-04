@@ -27,6 +27,32 @@ def run_command(command):
         raise Exception(f"Error executing command: {command}\n{result.stderr}")
 
 
+def validate_video_file(video_path):
+    if not os.path.isfile(video_path):
+        return False
+    if os.path.getsize(video_path) == 0:
+        return False
+    if shutil.which("ffprobe") is None:
+        return True
+
+    ffprobe_cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "stream=codec_type",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        video_path,
+    ]
+    result = subprocess.run(ffprobe_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return False
+
+    stream_types = {line.strip() for line in result.stdout.splitlines() if line.strip()}
+    return "video" in stream_types and "audio" in stream_types
+
+
 # Step 1: Download the YouTube video locally using yt-dlp
 def download_youtube_video(video_id, save_path):
 
@@ -100,8 +126,8 @@ def create_new_video(original_video, generated_audio, output_video):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python script.py <youtube_video_id> <target_language>")
+    if len(sys.argv) not in (3, 4):
+        print("Usage: python script.py <youtube_video_id> <target_language> [force_regenerate]")
         sys.exit(1)
 
     if shutil.which(FFMPEG_PATH) is None:
@@ -113,14 +139,21 @@ if __name__ == "__main__":
 
     video_id = sys.argv[1]
     target_language = sys.argv[2]
+    force_regenerate = False
+    if len(sys.argv) == 4:
+        force_regenerate = sys.argv[3].strip().lower() in {"1", "true", "yes"}
+
     save_path = os.path.join(os.getcwd(), "videos")
     os.makedirs(save_path, exist_ok=True)
 
     try:
         output_video_path = os.path.join(save_path, f"{video_id}_{target_language}.mp4")
-        if os.path.exists(output_video_path):
+        if not force_regenerate and validate_video_file(output_video_path):
+            print("CACHE_HIT=1")
             print(f"OUTPUT_FILE={output_video_path}")
             sys.exit(0)
+        if os.path.exists(output_video_path):
+            os.remove(output_video_path)
 
         # Step 1: Download the YouTube video
         print("Step 1")
@@ -143,14 +176,19 @@ if __name__ == "__main__":
         print("Step 5")
         video_base, _ = os.path.splitext(video_path)
         translated_audio_path = f"{video_base}_translated.mp3"
+        if os.path.exists(translated_audio_path):
+            os.remove(translated_audio_path)
         text_to_speech(translated_text, target_language, translated_audio_path)
 
         # Step 6: Create a new video
         print("Step 6")
         output_video_path = f"{video_base}_{target_language}.mp4"
         create_new_video(video_path, translated_audio_path, output_video_path)
+        if not validate_video_file(output_video_path):
+            raise Exception("Generated output file failed validation")
 
         print("Process completed successfully!")
+        print("CACHE_HIT=0")
         print(f"OUTPUT_FILE={output_video_path}")
     except Exception as e:
         print(f"An error occurred: {e}", file=sys.stderr)

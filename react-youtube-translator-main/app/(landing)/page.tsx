@@ -18,6 +18,8 @@ export default function Home() {
   const [videoId, setVideoId] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [translatedVideoUrl, setTranslatedVideoUrl] = useState("");
+  const [translationStatus, setTranslationStatus] = useState("");
+  const [forceRegenerate, setForceRegenerate] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const SERVER_ADDRESS =
@@ -68,12 +70,14 @@ export default function Home() {
     setLoading(true);
 
     try {
+      setTranslationStatus("");
       const response = await fetch(`${SERVER_ADDRESS}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           video_id: videoId,
           target_language: targetLanguage,
+          force_regenerate: forceRegenerate,
         }),
       });
 
@@ -86,6 +90,7 @@ export default function Home() {
         throw new Error("Translation completed but no output URL was returned.");
       }
       setTranslatedVideoUrl(data.output);
+      setTranslationStatus(data?.cache_hit ? "Using cached translation" : "Generated fresh translation");
     } catch (error) {
       let message =
         error instanceof Error ? error.message : "Error fetching translated video.";
@@ -93,9 +98,9 @@ export default function Home() {
         message = `Failed to fetch from ${SERVER_ADDRESS}/translate. Verify backend is running and reachable on this exact URL.`;
       }
       alert(message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -134,10 +139,23 @@ export default function Home() {
         </SelectContent>
       </Select>
 
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={forceRegenerate}
+          onChange={(event) => setForceRegenerate(event.target.checked)}
+        />
+        Force regenerate (ignore cached output)
+      </label>
+
       {/* Translate Button */}
       <Button onClick={handleTranslate} disabled={loading}>
         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Translate"}
       </Button>
+
+      {!loading && translationStatus && (
+        <p className="text-sm text-muted-foreground">{translationStatus}</p>
+      )}
 
       {/* Show Translated Video */}
       {!loading && translatedVideoUrl && (
