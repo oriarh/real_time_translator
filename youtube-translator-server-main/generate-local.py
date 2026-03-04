@@ -3,6 +3,7 @@ import subprocess
 import sys
 import glob
 import shutil
+import json
 from yt_dlp import YoutubeDL
 from gtts import gTTS
 from deep_translator import GoogleTranslator
@@ -148,12 +149,20 @@ if __name__ == "__main__":
 
     try:
         output_video_path = os.path.join(save_path, f"{video_id}_{target_language}.mp4")
+        transcript_file_path = os.path.join(
+            save_path, f"{video_id}_{target_language}.transcript.json"
+        )
+
         if not force_regenerate and validate_video_file(output_video_path):
             print("CACHE_HIT=1")
             print(f"OUTPUT_FILE={output_video_path}")
+            if os.path.isfile(transcript_file_path):
+                print(f"TRANSCRIPT_FILE={transcript_file_path}")
             sys.exit(0)
         if os.path.exists(output_video_path):
             os.remove(output_video_path)
+        if os.path.exists(transcript_file_path):
+            os.remove(transcript_file_path)
 
         # Step 1: Download the YouTube video
         print("Step 1")
@@ -187,9 +196,22 @@ if __name__ == "__main__":
         if not validate_video_file(output_video_path):
             raise Exception("Generated output file failed validation")
 
+        transcript_file_path = f"{video_base}_{target_language}.transcript.json"
+        with open(transcript_file_path, "w", encoding="utf-8") as transcript_file:
+            json.dump(
+                {
+                    "original_transcript": transcribed_text,
+                    "translated_transcript": translated_text,
+                },
+                transcript_file,
+                ensure_ascii=False,
+                indent=2,
+            )
+
         print("Process completed successfully!")
         print("CACHE_HIT=0")
         print(f"OUTPUT_FILE={output_video_path}")
+        print(f"TRANSCRIPT_FILE={transcript_file_path}")
     except Exception as e:
         print(f"An error occurred: {e}", file=sys.stderr)
         sys.exit(1)

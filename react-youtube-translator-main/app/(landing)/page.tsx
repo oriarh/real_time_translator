@@ -19,6 +19,8 @@ type TranslationMeta = {
   cacheHit: boolean | null;
   regenerated: boolean | null;
   localFile: string;
+  originalTranscript: string;
+  translatedTranscript: string;
 };
 
 const PIPELINE_STEPS = ["Validate URL", "Request sent", "Processing", "Ready"] as const;
@@ -35,7 +37,12 @@ export default function Home() {
     cacheHit: null,
     regenerated: null,
     localFile: "",
+    originalTranscript: "",
+    translatedTranscript: "",
   });
+  const [transcriptTab, setTranscriptTab] = useState<"original" | "translated">(
+    "translated"
+  );
 
   const SERVER_ADDRESS =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -121,6 +128,8 @@ export default function Home() {
         cacheHit: data?.cache_hit ?? null,
         regenerated: data?.regenerated ?? null,
         localFile: data?.local_file ?? "",
+        originalTranscript: data?.original_transcript ?? "",
+        translatedTranscript: data?.translated_transcript ?? "",
       });
       setUiPhase("success");
     } catch (error) {
@@ -276,35 +285,55 @@ export default function Home() {
         </div>
 
         <aside className="rounded-2xl p-5 surface-card sm:p-6">
-          <h3 className="font-display text-xl font-semibold text-[var(--text-primary)]">Session Insights</h3>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
-              <dt className="text-[var(--text-muted)]">Target language</dt>
-              <dd className="mt-1 font-medium text-[var(--text-primary)]">{selectedLanguageLabel}</dd>
-            </div>
-            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
-              <dt className="text-[var(--text-muted)]">Cache status</dt>
-              <dd className="mt-1 font-medium text-[var(--text-primary)]">
-                {translationMeta.cacheHit === null
-                  ? "Waiting for run"
-                  : translationMeta.cacheHit
-                  ? "Cache hit"
-                  : "Fresh generation"}
-              </dd>
-            </div>
-            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
-              <dt className="text-[var(--text-muted)]">Regeneration mode</dt>
-              <dd className="mt-1 font-medium text-[var(--text-primary)]">
-                {forceRegenerate ? "Forced regenerate" : "Default (reuse valid cache)"}
-              </dd>
-            </div>
-            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
-              <dt className="text-[var(--text-muted)]">Output path</dt>
-              <dd className="mt-1 break-all font-medium text-[var(--text-primary)]">
-                {translationMeta.localFile || "Not generated yet"}
-              </dd>
-            </div>
-          </dl>
+          <h3 className="font-display text-xl font-semibold text-[var(--text-primary)]">
+            Transcript Viewer
+          </h3>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Toggle between source and translated transcript.
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-lg border border-[var(--border-soft)] bg-white/70 p-1">
+            <button
+              className={`rounded-md px-3 py-2 text-sm transition ${
+                transcriptTab === "original"
+                  ? "bg-[var(--accent-brand)] text-white"
+                  : "text-[var(--text-primary)] hover:bg-white"
+              }`}
+              onClick={() => setTranscriptTab("original")}
+              type="button"
+            >
+              Original
+            </button>
+            <button
+              className={`rounded-md px-3 py-2 text-sm transition ${
+                transcriptTab === "translated"
+                  ? "bg-[var(--accent-brand)] text-white"
+                  : "text-[var(--text-primary)] hover:bg-white"
+              }`}
+              onClick={() => setTranscriptTab("translated")}
+              type="button"
+            >
+              {selectedLanguageLabel}
+            </button>
+          </div>
+
+          <div className="mt-4 h-[360px] overflow-auto rounded-lg border border-[var(--border-soft)] bg-white/65 p-4 text-sm leading-6 text-[var(--text-primary)]">
+            {transcriptTab === "original" ? (
+              translationMeta.originalTranscript ? (
+                <p className="whitespace-pre-wrap">{translationMeta.originalTranscript}</p>
+              ) : (
+                <p className="text-[var(--text-muted)]">
+                  Original transcript will appear after translation completes.
+                </p>
+              )
+            ) : translationMeta.translatedTranscript ? (
+              <p className="whitespace-pre-wrap">{translationMeta.translatedTranscript}</p>
+            ) : (
+              <p className="text-[var(--text-muted)]">
+                Translated transcript will appear after translation completes.
+              </p>
+            )}
+          </div>
         </aside>
       </section>
     </main>

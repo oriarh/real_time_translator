@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+import json
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -118,6 +119,9 @@ def run_script():
 
         output_line = next((line for line in output_lines if line.startswith("OUTPUT_FILE=")), None)
         cache_line = next((line for line in output_lines if line.startswith("CACHE_HIT=")), None)
+        transcript_line = next(
+            (line for line in output_lines if line.startswith("TRANSCRIPT_FILE=")), None
+        )
         if not output_line:
             return (
                 jsonify(
@@ -141,6 +145,21 @@ def run_script():
         if cache_line:
             cache_hit = cache_line.split("=", 1)[1].strip() == "1"
 
+        original_transcript = ""
+        translated_transcript = ""
+        if transcript_line:
+            transcript_path = transcript_line.split("=", 1)[1].strip()
+            if os.path.isfile(transcript_path):
+                try:
+                    with open(transcript_path, "r", encoding="utf-8") as transcript_file:
+                        transcript_data = json.load(transcript_file)
+                        original_transcript = transcript_data.get("original_transcript", "")
+                        translated_transcript = transcript_data.get(
+                            "translated_transcript", ""
+                        )
+                except (OSError, json.JSONDecodeError):
+                    pass
+
         cleanup_videos_dir()
 
         return jsonify(
@@ -149,6 +168,8 @@ def run_script():
                 "local_file": output_path,
                 "cache_hit": cache_hit,
                 "regenerated": not cache_hit,
+                "original_transcript": original_transcript,
+                "translated_transcript": translated_transcript,
             }
         )
     except Exception as e:
