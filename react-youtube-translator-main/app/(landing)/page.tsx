@@ -154,9 +154,6 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
       <section className="reveal-up space-y-4">
-        <div className="inline-flex rounded-full px-3 py-1 text-xs studio-pill">
-          Creator Studio Workflow
-        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <h1 className="font-display text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">
@@ -166,9 +163,6 @@ export default function Home() {
               Convert any YouTube video into your preferred language with clear progress feedback and
               production-style controls.
             </p>
-          </div>
-          <div className="inline-flex w-fit items-center rounded-full px-3 py-1 text-xs studio-pill">
-            API: {SERVER_ADDRESS}
           </div>
         </div>
       </section>
