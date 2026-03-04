@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,16 +11,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ReactPlayer from "react-player";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, TriangleAlert } from "lucide-react";
+
+type UiPhase = "idle" | "requesting" | "processing" | "success" | "error";
+
+type TranslationMeta = {
+  cacheHit: boolean | null;
+  regenerated: boolean | null;
+  localFile: string;
+};
+
+const PIPELINE_STEPS = ["Validate URL", "Request sent", "Processing", "Ready"] as const;
 
 export default function Home() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [videoId, setVideoId] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [translatedVideoUrl, setTranslatedVideoUrl] = useState("");
-  const [translationStatus, setTranslationStatus] = useState("");
   const [forceRegenerate, setForceRegenerate] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [uiPhase, setUiPhase] = useState<UiPhase>("idle");
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [translationMeta, setTranslationMeta] = useState<TranslationMeta>({
+    cacheHit: null,
+    regenerated: null,
+    localFile: "",
+  });
 
   const SERVER_ADDRESS =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -49,7 +64,9 @@ export default function Home() {
     { label: "English", code: "en" },
   ];
 
-  // Extract Video ID from YouTube URL
+  const selectedLanguageLabel =
+    languages.find((language) => language.code === targetLanguage)?.label || "Unknown";
+
   const extractVideoId = (url: string) => {
     const match = url.match(
       /(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*vi\/|.*watch\?v=))([^&?\/]+)/
@@ -57,20 +74,29 @@ export default function Home() {
     return match ? match[1] : "";
   };
 
-  // Handle URL Input Change
   const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setYoutubeUrl(event.target.value);
     const id = extractVideoId(event.target.value);
     setVideoId(id);
+    setUiPhase("idle");
+    setLastError(null);
   };
 
-  // Handle Translation Request
   const handleTranslate = async () => {
-    if (!videoId) return alert("Please enter a valid YouTube URL");
-    setLoading(true);
+    if (!videoId) {
+      setUiPhase("error");
+      setLastError("Please enter a valid YouTube URL.");
+      return;
+    }
+
+    setUiPhase("requesting");
+    setLastError(null);
 
     try {
-      setTranslationStatus("");
+      setTimeout(() => {
+        setUiPhase((current) => (current === "requesting" ? "processing" : current));
+      }, 350);
+
       const response = await fetch(`${SERVER_ADDRESS}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -89,81 +115,198 @@ export default function Home() {
       if (!data?.output) {
         throw new Error("Translation completed but no output URL was returned.");
       }
+
       setTranslatedVideoUrl(data.output);
-      setTranslationStatus(data?.cache_hit ? "Using cached translation" : "Generated fresh translation");
+      setTranslationMeta({
+        cacheHit: data?.cache_hit ?? null,
+        regenerated: data?.regenerated ?? null,
+        localFile: data?.local_file ?? "",
+      });
+      setUiPhase("success");
     } catch (error) {
       let message =
         error instanceof Error ? error.message : "Error fetching translated video.";
       if (message === "Failed to fetch") {
         message = `Failed to fetch from ${SERVER_ADDRESS}/translate. Verify backend is running and reachable on this exact URL.`;
       }
-      alert(message);
-    } finally {
-      setLoading(false);
+      setLastError(message);
+      setUiPhase("error");
     }
   };
 
+  const activeStepIndex = useMemo(() => {
+    if (uiPhase === "idle") return 0;
+    if (uiPhase === "requesting") return 1;
+    if (uiPhase === "processing") return 2;
+    if (uiPhase === "success") return 3;
+    return 2;
+  }, [uiPhase]);
+
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">YouTube Video Translator - v1</h1>
-
-      {/* YouTube URL Input */}
-      <Input
-        placeholder="Enter YouTube URL..."
-        value={youtubeUrl}
-        onChange={handleUrlChange}
-      />
-
-      {/* Show YouTube Video Player */}
-      {videoId && (
-        <div className="mt-4">
-          <ReactPlayer
-            url={`https://www.youtube.com/watch?v=${videoId}`}
-            controls
-            width="100%"
-          />
+    <main className="mx-auto max-w-6xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
+      <section className="reveal-up space-y-4">
+        <div className="inline-flex rounded-full px-3 py-1 text-xs studio-pill">
+          Creator Studio Workflow
         </div>
-      )}
-
-      {/* Language Selection Dropdown */}
-      <Select onValueChange={setTargetLanguage} value={targetLanguage}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select Language" />
-        </SelectTrigger>
-        <SelectContent>
-          {languages.map((lang) => (
-            <SelectItem key={lang.code} value={lang.code}>
-              {lang.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={forceRegenerate}
-          onChange={(event) => setForceRegenerate(event.target.checked)}
-        />
-        Force regenerate (ignore cached output)
-      </label>
-
-      {/* Translate Button */}
-      <Button onClick={handleTranslate} disabled={loading}>
-        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Translate"}
-      </Button>
-
-      {!loading && translationStatus && (
-        <p className="text-sm text-muted-foreground">{translationStatus}</p>
-      )}
-
-      {/* Show Translated Video */}
-      {!loading && translatedVideoUrl && (
-        <div className="mt-6">
-          <h2 className="text-lg font-semibold">Translated Video</h2>
-          <ReactPlayer url={translatedVideoUrl} controls width="100%" />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">
+              YouTube Translator Studio
+            </h1>
+            <p className="max-w-2xl text-sm text-[var(--text-muted)] sm:text-base">
+              Convert any YouTube video into your preferred language with clear progress feedback and
+              production-style controls.
+            </p>
+          </div>
+          <div className="inline-flex w-fit items-center rounded-full px-3 py-1 text-xs studio-pill">
+            API: {SERVER_ADDRESS}
+          </div>
         </div>
-      )}
-    </div>
+      </section>
+
+      <section className="reveal-up mt-7 rounded-2xl p-5 surface-card sm:p-6">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_220px]">
+          <div className="space-y-4">
+            <label className="text-sm font-medium text-[var(--text-primary)]" htmlFor="youtube-url">
+              YouTube URL
+            </label>
+            <Input
+              id="youtube-url"
+              className="border-[var(--border-soft)] bg-white/70 placeholder:text-[var(--text-muted)]"
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={youtubeUrl}
+              onChange={handleUrlChange}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-sm font-medium text-[var(--text-primary)]">Target Language</label>
+            <Select onValueChange={setTargetLanguage} value={targetLanguage}>
+              <SelectTrigger className="w-full border-[var(--border-soft)] bg-white/70">
+                <SelectValue placeholder="Select Language" />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    {language.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <label className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
+            <input
+              type="checkbox"
+              checked={forceRegenerate}
+              onChange={(event) => setForceRegenerate(event.target.checked)}
+            />
+            Force regenerate (ignore cache)
+          </label>
+
+          <Button
+            className="bg-[var(--accent-brand)] text-white hover:bg-[var(--accent-strong)]"
+            onClick={handleTranslate}
+            disabled={uiPhase === "requesting" || uiPhase === "processing"}
+          >
+            {uiPhase === "requesting" || uiPhase === "processing" ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Translating...
+              </>
+            ) : (
+              "Translate Video"
+            )}
+          </Button>
+        </div>
+      </section>
+
+      <section className="reveal-up mt-6 rounded-2xl p-5 surface-card sm:p-6">
+        <h2 className="font-display text-2xl font-semibold text-[var(--text-primary)]">Pipeline Status</h2>
+        <ol className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {PIPELINE_STEPS.map((step, index) => {
+            const isDone = index < activeStepIndex || (uiPhase === "success" && index === activeStepIndex);
+            const isActive = index === activeStepIndex && uiPhase !== "success";
+
+            return (
+              <li
+                key={step}
+                className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
+                  isDone
+                    ? "chip-ok"
+                    : isActive
+                    ? "chip-warn"
+                    : "border-[var(--border-soft)] bg-white/60 text-[var(--text-muted)]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {isDone ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                  <span>{step}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        {lastError && (
+          <div className="chip-error mt-4 rounded-xl px-3 py-3 text-sm">
+            <div className="flex items-start gap-2">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <p className="whitespace-pre-wrap">{lastError}</p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="reveal-up mt-6 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className="rounded-2xl p-5 surface-card sm:p-6">
+          <h2 className="font-display text-2xl font-semibold text-[var(--text-primary)]">Video Output</h2>
+          <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-black/10">
+            <ReactPlayer
+              url={
+                translatedVideoUrl ||
+                (videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined)
+              }
+              controls
+              width="100%"
+            />
+          </div>
+        </div>
+
+        <aside className="rounded-2xl p-5 surface-card sm:p-6">
+          <h3 className="font-display text-xl font-semibold text-[var(--text-primary)]">Session Insights</h3>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
+              <dt className="text-[var(--text-muted)]">Target language</dt>
+              <dd className="mt-1 font-medium text-[var(--text-primary)]">{selectedLanguageLabel}</dd>
+            </div>
+            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
+              <dt className="text-[var(--text-muted)]">Cache status</dt>
+              <dd className="mt-1 font-medium text-[var(--text-primary)]">
+                {translationMeta.cacheHit === null
+                  ? "Waiting for run"
+                  : translationMeta.cacheHit
+                  ? "Cache hit"
+                  : "Fresh generation"}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
+              <dt className="text-[var(--text-muted)]">Regeneration mode</dt>
+              <dd className="mt-1 font-medium text-[var(--text-primary)]">
+                {forceRegenerate ? "Forced regenerate" : "Default (reuse valid cache)"}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[var(--border-soft)] bg-white/60 px-3 py-2">
+              <dt className="text-[var(--text-muted)]">Output path</dt>
+              <dd className="mt-1 break-all font-medium text-[var(--text-primary)]">
+                {translationMeta.localFile || "Not generated yet"}
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      </section>
+    </main>
   );
 }

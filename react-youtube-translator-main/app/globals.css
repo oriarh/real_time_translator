@@ -2,63 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 36 29% 95%;
+    --foreground: 18 24% 15%;
+    --card: 40 33% 98%;
+    --card-foreground: 18 24% 15%;
+    --popover: 40 33% 98%;
+    --popover-foreground: 18 24% 15%;
+    --primary: 20 65% 38%;
+    --primary-foreground: 40 45% 97%;
+    --secondary: 38 35% 91%;
+    --secondary-foreground: 20 24% 18%;
+    --muted: 35 22% 89%;
+    --muted-foreground: 18 14% 40%;
+    --accent: 26 70% 46%;
+    --accent-foreground: 40 45% 97%;
+    --destructive: 2 67% 49%;
+    --destructive-foreground: 35 50% 96%;
+    --border: 24 25% 80%;
+    --input: 24 25% 80%;
+    --ring: 20 65% 38%;
+    --radius: 0.85rem;
+
+    --bg-canvas: #f7f1e8;
+    --bg-surface: #fff8ef;
+    --text-primary: #31241b;
+    --text-muted: #786050;
+    --accent-brand: #9d4f21;
+    --accent-strong: #7b3d19;
+    --border-soft: #d9c5b4;
+    --success: #2f7a4f;
+    --warning: #b7771f;
   }
 }
 
@@ -66,7 +41,78 @@ body {
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    font-family: var(--font-body), sans-serif;
+    background:
+      radial-gradient(circle at 12% 10%, rgba(157, 79, 33, 0.09) 0, rgba(157, 79, 33, 0) 34%),
+      radial-gradient(circle at 88% 4%, rgba(183, 119, 31, 0.12) 0, rgba(183, 119, 31, 0) 30%),
+      linear-gradient(180deg, #fbf5ed 0%, #f4ecdf 100%);
+    color: var(--text-primary);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(69, 45, 30, 0.06) 0.5px, transparent 0.5px);
+    background-size: 3px 3px;
+    opacity: 0.22;
+    z-index: -1;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), serif;
+  }
+
+  .surface-card {
+    background: color-mix(in srgb, var(--bg-surface) 88%, #ffffff);
+    border: 1px solid var(--border-soft);
+    box-shadow:
+      0 10px 24px rgba(51, 30, 16, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .studio-pill {
+    border: 1px solid var(--border-soft);
+    background: rgba(255, 250, 242, 0.95);
+    color: var(--text-muted);
+  }
+
+  .chip-ok {
+    color: #185638;
+    background: rgba(47, 122, 79, 0.13);
+    border: 1px solid rgba(47, 122, 79, 0.32);
+  }
+
+  .chip-warn {
+    color: #7b4a07;
+    background: rgba(183, 119, 31, 0.14);
+    border: 1px solid rgba(183, 119, 31, 0.34);
+  }
+
+  .chip-error {
+    color: #7a1f1f;
+    background: rgba(196, 52, 52, 0.12);
+    border: 1px solid rgba(196, 52, 52, 0.32);
+  }
+
+  .reveal-up {
+    animation: revealUp 0.55s ease-out both;
+  }
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
